@@ -1,0 +1,6 @@
+{
+  "name": "Palate",
+  "description": "A social record of human taste. Letterboxd for food, starting in Singapore and scaling globally.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": []
+}

@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "PalateMap": {
+      "title": "PalateMap",
+      "description": "8-axis flavor profile",
+      "type": "object",
+      "properties": {
+        "sweet": { "type": "number" },
+        "sour": { "type": "number" },
+        "salty": { "type": "number" },
+        "bitter": { "type": "number" },
+        "umami": { "type": "number" },
+        "spicy": { "type": "number" },
+        "richness": { "type": "number" },
+        "texture": { "type": "number" }
+      },
+      "required": ["sweet", "sour", "salty", "bitter", "umami", "spicy", "richness", "texture"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User's food identity and stats",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "signature4": { "type": "array", "items": { "type": "string" } },
+        "palateMap": { "$ref": "PalateMap" },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "totalPlates": { "type": "number" },
+            "distinctCuisines": { "type": "number" },
+            "neighborhoods": { "type": "number" }
+          }
+        },
+        "bio": { "type": "string" }
+      },
+      "required": ["username", "displayName", "palateMap", "stats"]
+    },
+    "Dish": {
+      "title": "Dish",
+      "description": "A specific food item",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "restaurantId": { "type": "string" },
+        "restaurantName": { "type": "string" },
+        "avgRating": { "type": "number" },
+        "flavorProfile": { "$ref": "PalateMap" },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["name", "restaurantId", "restaurantName", "avgRating", "flavorProfile"]
+    },
+    "FoodLog": {
+      "title": "FoodLog",
+      "description": "A user's entry for a meal",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "dishId": { "type": "string" },
+        "dishName": { "type": "string" },
+        "restaurantId": { "type": "string" },
+        "restaurantName": { "type": "string" },
+        "rating": { "type": "number" },
+        "review": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "worthTheQueue": { "type": "boolean" },
+        "reMakanCount": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "flavorProfile": { "$ref": "PalateMap" }
+      },
+      "required": ["userId", "dishName", "rating", "timestamp", "flavorProfile"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "/dishes/{dishId}": {
+      "schema": "Dish",
+      "description": "Global dish database"
+    },
+    "/logs/{logId}": {
+      "schema": "FoodLog",
+      "description": "Individual meal logs"
+    }
+  }
+}

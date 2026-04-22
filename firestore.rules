@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (Firebase Auth UID)
+    // Fields:
+    //   - username: string (required, 3-30 chars)
+    //   - displayName: string (required, 1-50 chars)
+    //   - photoURL: string (optional, URL)
+    //   - bio: string (optional, < 200 chars)
+    //   - palateMap: map (required, PalateMap schema)
+    //   - stats: map (required, totalPlates, distinctCuisines, neighborhoods)
+    //   - signature4: list (optional, strings)
+    //
+    // Collection: dishes
+    // Document ID: auto-generated
+    // Fields:
+    //   - name: string (required)
+    //   - restaurantId: string (required)
+    //   - restaurantName: string (required)
+    //   - avgRating: number (required)
+    //   - flavorProfile: map (required, PalateMap schema)
+    //   - photoURL: string (optional)
+    //
+    // Collection: logs
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required, matches creator)
+    //   - dishName: string (required)
+    //   - rating: number (required, 0.5-5.0)
+    //   - review: string (optional, < 1000 chars)
+    //   - photoURL: string (required, URL)
+    //   - worthTheQueue: bool (required)
+    //   - reMakanCount: number (required, >= 1)
+    //   - timestamp: timestamp (required)
+    //   - flavorProfile: map (required, PalateMap schema)
+    //   - tags: list (optional, strings)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidPalateMap(map) {
+      let axes = ['sweet', 'sour', 'salty', 'bitter', 'umami', 'spicy', 'richness', 'texture'];
+      return map is map && 
+             map.keys().hasAll(axes) &&
+             map.sweet is number && map.sweet >= 0 && map.sweet <= 1 &&
+             map.sour is number && map.sour >= 0 && map.sour <= 1 &&
+             map.salty is number && map.salty >= 0 && map.salty <= 1 &&
+             map.bitter is number && map.bitter >= 0 && map.bitter <= 1 &&
+             map.umami is number && map.umami >= 0 && map.umami <= 1 &&
+             map.spicy is number && map.spicy >= 0 && map.spicy <= 1 &&
+             map.richness is number && map.richness >= 0 && map.richness <= 1 &&
+             map.texture is number && map.texture >= 0 && map.texture <= 1;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.username is string && data.username.size() >= 3 && data.username.size() <= 30 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 50 &&
+             isValidPalateMap(data.palateMap) &&
+             data.stats is map &&
+             data.stats.totalPlates is number &&
+             data.stats.distinctCuisines is number &&
+             data.stats.neighborhoods is number;
+    }
+
+    function isValidLog(data) {
+      return data.userId == request.auth.uid &&
+             data.dishName is string && data.dishName.size() > 0 &&
+             data.rating is number && data.rating >= 0.5 && data.rating <= 5.0 &&
+             isValidUrl(data.photoURL) &&
+             data.worthTheQueue is bool &&
+             data.reMakanCount is number && data.reMakanCount >= 1 &&
+             data.timestamp is timestamp &&
+             isValidPalateMap(data.flavorProfile);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /dishes/{dishId} {
+      allow read: if isAuthenticated();
+      // Only system or admins should create dishes in a real app, 
+      // but for this MVP we allow users to contribute.
+      allow create: if isAuthenticated(); 
+    }
+
+    match /logs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidLog(request.resource.data);
+      allow update: if isDocOwner() && isValidLog(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
