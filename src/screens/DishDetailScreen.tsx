@@ -43,49 +43,80 @@ export const DishDetailScreen: React.FC = () => {
             targetDish = decodeURIComponent(parts[1]);
             targetRestaurant = decodeURIComponent(parts[2]);
             targetNeighborhood = decodeURIComponent(parts[3]);
-          } else {
-            // It's likely a raw Place ID from Google
-            targetRestaurant = ''; 
-          }
 
-          try {
-            // Find Google Place first
-            const searchQuery = targetRestaurant ? `${targetRestaurant} ${targetNeighborhood}` : id;
-            const searchRes = await fetch(`/api/places?query=${encodeURIComponent(searchQuery)}+Singapore`);
-            const searchData = await searchRes.json();
-            
-            const place = searchData.results?.[0];
-            if (place) {
-              const res = await fetch(`/api/places/details?placeId=${place.place_id}`);
+            try {
+              // Find Google Place first for resolve IDs (AI Discovery)
+              const searchQuery = `${targetRestaurant} ${targetNeighborhood}`;
+              const searchRes = await fetch(`/api/places?query=${encodeURIComponent(searchQuery)}+Singapore`);
+              const searchData = await searchRes.json();
+              
+              const place = searchData.results?.[0];
+              if (place) {
+                const res = await fetch(`/api/places/details?placeId=${place.place_id}`);
+                const data = await res.json();
+                const p = data.result;
+                const apiKey = (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY;
+                
+                dishData = {
+                  id: id,
+                  name: targetDish || p.name,
+                  restaurantId: place.place_id,
+                  restaurantName: p.name,
+                  avgRating: p.rating || 0,
+                  photoURL: p.photos && apiKey ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${p.photos[0].photo_reference}&key=${apiKey}` : undefined,
+                  flavorProfile: { sweet: 0.5, sour: 0.5, salty: 0.5, bitter: 0.5, umami: 0.5, spicy: 0.5, richness: 0.5, texture: 0.5 },
+                  location: { neighborhood: p.vicinity }
+                } as Dish;
+                
+                // Smart Menu Discovery
+                setDiscovering(true);
+                const discovered = await discoverMenu(p.name, p.vicinity, targetDish);
+                
+                setFullMenu(discovered.map((d: any, idx: number) => ({
+                  id: `resolve:${encodeURIComponent(d.name)}:${encodeURIComponent(p.name)}:${encodeURIComponent(p.vicinity)}`,
+                  ...d,
+                  restaurantName: p.name,
+                  restaurantId: place.place_id,
+                  photoURL: `https://picsum.photos/seed/${d.name}${idx}/400/400`
+                })));
+              }
+            } catch (e) {
+              console.error('Resolution failed:', e);
+            }
+          } else {
+            // Raw Google Place ID — fetch details directly, no text search needed
+            try {
+              const res = await fetch(`/api/places/details?placeId=${id}`);
               const data = await res.json();
               const p = data.result;
-              const apiKey = (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY;
-              
-              dishData = {
-                id: id,
-                name: targetDish || p.name,
-                restaurantId: place.place_id,
-                restaurantName: p.name,
-                avgRating: p.rating || 0,
-                photoURL: p.photos && apiKey ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${p.photos[0].photo_reference}&key=${apiKey}` : undefined,
-                flavorProfile: { sweet: 0.5, sour: 0.5, salty: 0.5, bitter: 0.5, umami: 0.5, spicy: 0.5, richness: 0.5, texture: 0.5 },
-                location: { neighborhood: p.vicinity }
-              } as Dish;
-              
-              // Smart Menu Discovery!
-              setDiscovering(true);
-              const discovered = await discoverMenu(p.name, p.vicinity, targetDish);
-              
-              setFullMenu(discovered.map((d: any, idx: number) => ({
-                id: `resolve:${encodeURIComponent(d.name)}:${encodeURIComponent(p.name)}:${encodeURIComponent(p.vicinity)}`,
-                ...d,
-                restaurantName: p.name,
-                restaurantId: place.place_id,
-                photoURL: `https://picsum.photos/seed/${d.name}${idx}/400/400`
-              })));
+              if (p) {
+                const apiKey = (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY;
+                dishData = {
+                  id: id,
+                  name: p.name,
+                  restaurantId: id,
+                  restaurantName: p.name,
+                  avgRating: p.rating || 0,
+                  photoURL: p.photos && apiKey
+                    ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${p.photos[0].photo_reference}&key=${apiKey}`
+                    : undefined,
+                  flavorProfile: { sweet: 0.5, sour: 0.5, salty: 0.5, bitter: 0.5, umami: 0.5, spicy: 0.5, richness: 0.5, texture: 0.5 },
+                  location: { neighborhood: p.vicinity }
+                } as Dish;
+
+                setDiscovering(true);
+                const discovered = await discoverMenu(p.name, p.vicinity, '');
+                setFullMenu(discovered.map((d: any, idx: number) => ({
+                  id: `resolve:${encodeURIComponent(d.name)}:${encodeURIComponent(p.name)}:${encodeURIComponent(p.vicinity)}`,
+                  ...d,
+                  restaurantName: p.name,
+                  restaurantId: id,
+                  photoURL: `https://picsum.photos/seed/${d.name}${idx}/400/400`
+                })));
+              }
+            } catch (e) {
+              console.error('Place details fetch failed:', e);
             }
-          } catch (e) {
-            console.error('Resolution failed:', e);
           }
         }
         
