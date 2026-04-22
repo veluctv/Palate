@@ -16,8 +16,8 @@ async function startServer() {
   app.get("/api/health", (req, res) => {
     res.json({ 
       status: "ok", 
-      googleMapsKey: !!(process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY),
-      geminiKey: !!process.env.GEMINI_API_KEY
+      googleMapsKeyConfigured: !!(process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY),
+      geminiKeyConfigured: !!process.env.GEMINI_API_KEY
     });
   });
 

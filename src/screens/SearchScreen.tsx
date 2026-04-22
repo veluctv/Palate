@@ -4,8 +4,8 @@ import { Search as SearchIcon, MapPin, Utensils, Users, TrendingUp, Loader2, Sta
 import { cn } from '../lib/utils';
 import { DishCard } from '../components/DishCard';
 import { Dish, UserProfile } from '../types';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { db } from '../firebase';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { discoverFamousPlaces } from '../services/geminiService';
 
 const TRENDING_DISHES: Dish[] = [
@@ -21,14 +21,16 @@ export const SearchScreen: React.FC = () => {
   const [results, setResults] = useState<any[]>([]);
   const [topResults, setTopResults] = useState<{ dishes: any[], people: any[], restaurants: any[], global: any[] }>({ dishes: [], people: [], restaurants: [], global: [] });
   const [loading, setLoading] = useState(false);
-  const [discovering, setDiscovering] = useState(false);
   const [keyHealth, setKeyHealth] = useState<{ googleMaps: boolean; gemini: boolean }>({ googleMaps: true, gemini: true });
 
   useEffect(() => {
     fetch('/api/health')
       .then(res => res.json())
       .then(data => {
-        setKeyHealth({ googleMaps: data.googleMapsKey, gemini: data.geminiKey });
+        setKeyHealth({ 
+          googleMaps: data.googleMapsKeyConfigured, 
+          gemini: data.geminiKeyConfigured 
+        });
       })
       .catch(() => console.error("Could not check key health"));
   }, []);
@@ -45,13 +47,8 @@ export const SearchScreen: React.FC = () => {
 
       const fetchPlaces = async (text: string) => {
         try {
-          console.log(`Places Probe: ${text}`);
           const res = await fetch(`/api/places?query=${encodeURIComponent(text + " Singapore")}`);
-          if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            console.error('Places API Error:', res.status, errData);
-            return [];
-          }
+          if (!res.ok) return [];
           const data = await res.json();
           let results = data.results || [];
 
@@ -110,7 +107,6 @@ export const SearchScreen: React.FC = () => {
       };
 
       const fetchGlobalDiscovery = async (text: string) => {
-        setDiscovering(true);
         try {
           const discovered = await discoverFamousPlaces(text);
           const formattedQuery = text.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
@@ -128,43 +124,30 @@ export const SearchScreen: React.FC = () => {
         } catch (e) {
           console.error('Smart discovery failed:', e);
           return [];
-        } finally {
-          setDiscovering(false);
         }
       };
 
       if (activeTab === 'top') {
-        setLoading(true);
-        const results = await Promise.allSettled([
+        const [dishes, people, restaurants, global] = await Promise.all([
           fetchFirestore('dishes', 'name', queryText, 'dish'),
           fetchFirestore('users', 'displayName', queryText, 'person'),
           fetchPlaces(queryText),
           queryText.length >= 3 ? fetchGlobalDiscovery(queryText) : Promise.resolve([])
         ]);
-
-        const dishes = results[0].status === 'fulfilled' ? results[0].value : [];
-        const people = results[1].status === 'fulfilled' ? results[1].value : [];
-        const restaurants = results[2].status === 'fulfilled' ? results[2].value : [];
-        const global = results[3].status === 'fulfilled' ? results[3].value : [];
-
         setTopResults({ dishes, people, restaurants, global });
-        setLoading(false);
       } else if (activeTab === 'restaurants') {
-        const restaurants = await fetchPlaces(queryText);
-        setResults(restaurants);
-        setLoading(false);
+        setResults(await fetchPlaces(queryText));
       } else {
         const collectionName = activeTab === 'people' ? 'users' : 'dishes';
         const searchField = activeTab === 'people' ? 'displayName' : 'name';
         const type = activeTab === 'people' ? 'person' : 'dish';
-
-        const [firestoreResults, globalDiscovery] = await Promise.all([
+        const [fRes, gDiscovery] = await Promise.all([
           fetchFirestore(collectionName, searchField, queryText, type),
           (activeTab === 'dishes' && queryText.length >= 3) ? fetchGlobalDiscovery(queryText) : Promise.resolve([])
         ]);
-        setResults([...firestoreResults, ...globalDiscovery]);
-        setLoading(false);
+        setResults([...fRes, ...gDiscovery]);
       }
+      setLoading(false);
     };
 
     const timeoutId = setTimeout(performSearch, 500);
@@ -231,53 +214,87 @@ export const SearchScreen: React.FC = () => {
               </div>
             </section>
           </div>
-        ) : loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-accent animate-spin" /></div>
-        ) : activeTab === 'top' ? (
-          <div className="space-y-8">
-            {topResults.global.length > 0 && (
-              <section className="space-y-4">
-                <h3 className="text-[10px] uppercase tracking-widest font-bold text-muted px-1">AI Discovery</h3>
-                <div className="space-y-4">
-                  {topResults.global.map((dish: any) => (
-                    <Link key={dish.id} to={`/dish/${dish.id}`} className="block glass rounded-2xl p-4 hover:border-accent transition-colors group">
-                      <div className="flex justify-between items-start mb-2">
-                        <p className="text-xs font-bold text-accent">{dish.name}</p>
-                        <div className="flex items-center gap-1 bg-accent/10 px-2 py-0.5 rounded-full"><Star size={10} className="text-accent fill-accent" /><span className="text-[10px] font-bold text-accent">{dish.avgRating}</span></div>
-                      </div>
-                      <h4 className="text-lg font-bold group-hover:text-accent transition-colors">{dish.restaurantName}</h4>
-                      <p className="text-[10px] text-muted uppercase mb-2">{dish.location.neighborhood}</p>
-                      <p className="text-xs text-muted leading-relaxed line-clamp-2">{dish.globalInfo}</p>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
-            {topResults.restaurants.length > 0 && (
-              <section className="space-y-4">
-                <h3 className="text-[10px] uppercase tracking-widest font-bold text-muted px-1">Places</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {topResults.restaurants.slice(0, 4).map((r: any) => <DishCard key={r.id} dish={r as Dish} />)}
-                </div>
-              </section>
-            )}
-            {topResults.people.length > 0 && (
-              <section className="space-y-4">
-                <h3 className="text-[10px] uppercase tracking-widest font-bold text-muted px-1">People</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {topResults.people.map((u: UserProfile) => (
-                    <Link key={u.id} to={`/profile/${u.id}`} className="glass rounded-2xl p-4 flex items-center gap-3 hover:border-accent group">
-                      <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-bold text-accent group-hover:bg-accent group-hover:text-black">{u.displayName[0]}</div>
-                      <p className="text-xs font-bold truncate group-hover:text-accent">{u.displayName}</p>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {results.map((item: any) => <DishCard key={item.id} dish={item} />)}
+          <div className="space-y-6">
+            {loading ? (
+              <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-accent animate-spin" /></div>
+            ) : activeTab === 'top' ? (
+              <div className="space-y-8">
+                {topResults.global.length === 0 && topResults.dishes.length === 0 && topResults.restaurants.length === 0 && topResults.people.length === 0 ? (
+                  <div className="text-center py-20 text-muted space-y-4">
+                    <Utensils className="w-12 h-12 mx-auto opacity-20" />
+                    <div className="space-y-1">
+                      <p className="font-bold text-white">No results found for "{queryText}"</p>
+                      <p className="text-[10px] uppercase tracking-[0.2em]">Our AI is currently scouring Singapore for new flavors.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {topResults.global.length > 0 && (
+                      <section className="space-y-4">
+                        <h3 className="text-[10px] uppercase tracking-widest font-bold text-muted px-1">AI Discovery</h3>
+                        <div className="space-y-4">
+                          {topResults.global.map((dish: any) => (
+                            <Link key={dish.id} to={`/dish/${dish.id}`} className="block glass rounded-2xl p-4 hover:border-accent transition-colors group">
+                              <div className="flex justify-between items-start mb-2">
+                                <p className="text-xs font-bold text-accent">{dish.name}</p>
+                                <div className="flex items-center gap-1 bg-accent/10 px-2 py-0.5 rounded-full"><Star size={10} className="text-accent fill-accent" /><span className="text-[10px] font-bold text-accent">{dish.avgRating}</span></div>
+                              </div>
+                              <h4 className="text-lg font-bold group-hover:text-accent transition-colors">{dish.restaurantName}</h4>
+                              <p className="text-[10px] text-muted uppercase mb-2">{dish.location.neighborhood}</p>
+                              <p className="text-xs text-muted leading-relaxed line-clamp-2">{dish.globalInfo}</p>
+                            </Link>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                    {topResults.dishes.length > 0 && (
+                      <section className="space-y-4">
+                        <h3 className="text-[10px] uppercase tracking-widest font-bold text-muted px-1">Community Favorites</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          {topResults.dishes.slice(0, 2).map((dish: Dish) => (
+                            <DishCard key={dish.id} dish={dish} />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                    {topResults.restaurants.length > 0 && (
+                      <section className="space-y-4">
+                        <h3 className="text-[10px] uppercase tracking-widest font-bold text-muted px-1">Places</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          {topResults.restaurants.slice(0, 4).map((r: any) => <DishCard key={r.id} dish={r as Dish} />)}
+                        </div>
+                      </section>
+                    )}
+                    {topResults.people.length > 0 && (
+                      <section className="space-y-4">
+                        <h3 className="text-[10px] uppercase tracking-widest font-bold text-muted px-1">People</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          {topResults.people.map((u: UserProfile) => (
+                            <Link key={u.id} to={`/profile/${u.id}`} className="glass rounded-2xl p-4 flex items-center gap-3 hover:border-accent group">
+                              <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-bold text-accent group-hover:bg-accent group-hover:text-black">{u.displayName[0]}</div>
+                              <p className="text-xs font-bold truncate group-hover:text-accent">{u.displayName}</p>
+                            </Link>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : results.length > 0 ? (
+              <div className="grid grid-cols-2 gap-4">
+                {results.map((item: any) => <DishCard key={item.id} dish={item} />)}
+              </div>
+            ) : (
+              <div className="text-center py-20 text-muted space-y-4">
+                <Utensils className="w-12 h-12 mx-auto opacity-20" />
+                <div className="space-y-1">
+                  <p className="font-bold text-white">No results found for "{queryText}"</p>
+                  <p className="text-[10px] uppercase tracking-widest">Tip: Try a broader search or check your spelling.</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

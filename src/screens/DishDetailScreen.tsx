@@ -211,7 +211,7 @@ export const DishDetailScreen: React.FC = () => {
 
       {/* Flavor Profile */}
       <section className="space-y-4">
-        <h2 className="text-xs uppercase tracking-[0.2em] font-bold text-muted">Flavor DNA</h2>
+        <h2 className="text-xs uppercase tracking-[0.2em] font-bold text-muted">Palate Profile</h2>
         <div className="glass rounded-3xl p-6 flex flex-col md:flex-row items-center gap-8">
           <div className="w-full max-w-[250px]">
             <PalateChart data={dish.flavorProfile} size={250} />
@@ -264,7 +264,7 @@ export const DishDetailScreen: React.FC = () => {
                     <span className="text-xs font-mono text-accent">{m.price}</span>
                   </div>
                   <p className="text-[10px] text-muted line-clamp-2 leading-relaxed italic">
-                    {m.description || "Freshly analyzed flavor DNA for this iconic dish."}
+                    {m.description || "Freshly analyzed palate profile for this iconic dish."}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                      <PalateChart data={m.flavorProfile} size={40} simple />

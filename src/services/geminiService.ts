@@ -51,7 +51,7 @@ export const discoverMenu = async (restaurantName: string, neighborhood: string,
         - description: A short, vivid description (15 words max).
         - estimatedRating: A realistic rating (3.5 - 5.0).
         - price: Estimated price in SGD (e.g. "$14.50").
-        - flavorProfile: Dynamic palate DNA (0.0 to 1.0).`,
+        - flavorProfile: Dynamic palate profile (0.0 to 1.0).`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
