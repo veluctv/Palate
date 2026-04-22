@@ -14,11 +14,35 @@ async function startServer() {
 
   // API health check
   app.get("/api/health", (req, res) => {
-    const hasKey = !!(process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY);
     res.json({ 
       status: "ok", 
-      googleMapsKeyConfigured: hasKey 
+      googleMapsKey: !!(process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY),
+      geminiKey: !!process.env.GEMINI_API_KEY
     });
+  });
+
+  app.get("/api/places/photo", async (req, res) => {
+    const { photoRef, maxWidth = "800" } = req.query;
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
+
+    if (!apiKey) return res.status(500).json({ error: "Missing API Key" });
+
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxWidth}&photoreference=${photoRef}&key=${apiKey}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) throw new Error("Failed to fetch photo");
+
+      const contentType = response.headers.get("content-type") || "image/jpeg";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=604800"); // Cache for a week
+
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } catch (error) {
+      console.error("Photo Proxy Error:", error);
+      res.status(500).json({ error: "Failed to fetch image" });
+    }
   });
 
   app.get("/api/places", async (req, res) => {
