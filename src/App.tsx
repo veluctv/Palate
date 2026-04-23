@@ -11,13 +11,17 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { DishDetailScreen } from './screens/DishDetailScreen';
 import { AdminScreen } from './screens/AdminScreen';
 import { Loader2 } from 'lucide-react';
+import { UserProfile } from './types';
+import { db } from './firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  profile: UserProfile | null;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
+const AuthContext = createContext<AuthContextType>({ user: null, loading: true, profile: null });
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -41,11 +45,42 @@ const LoginScreen: React.FC = () => (
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      if (user) {
+        // Essential: Sync profile at the entry point
+        const userDocRef = doc(db, 'users', user.uid);
+        try {
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            setProfile({ id: userDoc.id, ...userDoc.data() } as UserProfile);
+          } else {
+            const newProfile: UserProfile = {
+              id: user.uid,
+              username: user.email?.split('@')[0] || 'user',
+              displayName: user.displayName || 'New Foodie',
+              photoURL: user.photoURL || undefined,
+              signature4: [],
+              palateMap: {
+                sweet: 0.5, sour: 0.5, salty: 0.5, bitter: 0.5,
+                umami: 0.5, spicy: 0.5, richness: 0.5, texture: 0.5,
+              },
+              stats: { totalPlates: 0, distinctCuisines: 0, neighborhoods: 0 },
+              lists: []
+            };
+            await setDoc(userDocRef, newProfile);
+            setProfile(newProfile);
+          }
+        } catch (e) {
+          console.error("Critical: Profile fetch failure", e);
+        }
+      } else {
+        setProfile(null);
+      }
       setLoading(false);
     });
     return unsubscribe;
@@ -60,7 +95,7 @@ export default function App() {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, profile }}>
       <BrowserRouter>
         {!user ? (
           <Routes>

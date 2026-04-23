@@ -237,7 +237,7 @@ export const DishDetailScreen: React.FC = () => {
         className="w-full bg-accent text-black font-black py-4 rounded-2xl shadow-xl shadow-accent/20 flex items-center justify-center gap-3 active:scale-[0.98] transition-transform"
       >
         <TrendingUp size={20} />
-        <span>LOG THIS MAKAN</span>
+        <span>LOG THIS MEAL</span>
       </button>
 
       {/* Flavor Profile */}
@@ -331,10 +331,10 @@ export const DishDetailScreen: React.FC = () => {
               <div key={log.id} className="glass rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <Link to={`/profile/${log.userId}`} className="flex items-center gap-2 group">
-                    <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent group-hover:bg-accent group-hover:text-black transition-colors">
-                      {log.userId[0].toUpperCase()}
+                    <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent group-hover:bg-accent group-hover:text-black transition-colors uppercase italic">
+                      {(log.username || log.userId)[0]}
                     </div>
-                    <span className="text-xs font-bold group-hover:text-accent transition-colors">User {log.userId.slice(0, 5)}</span>
+                    <span className="text-xs font-bold group-hover:text-accent transition-colors">@{log.username || `user_${log.userId?.slice(0, 5)}`}</span>
                   </Link>
                   <div className="flex items-center gap-1 text-accent">
                     <Star size={10} className="fill-accent" />

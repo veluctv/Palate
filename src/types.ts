@@ -24,6 +24,18 @@ export interface UserProfile {
   palateMap: PalateMap;
   stats: UserStats;
   bio?: string;
+  lists?: string[]; // IDs of FoodList
+}
+
+export interface FoodList {
+  id: string;
+  userId: string;
+  username: string;
+  title: string;
+  description: string;
+  dishIds: string[];
+  isPublic: boolean;
+  createdAt: any;
 }
 
 export interface Restaurant {
@@ -51,15 +63,17 @@ export interface Dish {
 export interface FoodLog {
   id: string;
   userId: string;
+  username: string; // Redundant for performance
+  userDisplayName: string; // Redundant for performance
   dishId: string;
   dishName: string;
   restaurantId: string;
   restaurantName: string;
-  rating: number; // 1-5 with 0.5 increments
+  rating: number; // 1 to 5 with 0.5 increments
   review: string;
   photoURL: string;
   worthTheQueue: boolean;
-  reMakanCount: number;
+  revisitCount: number;
   timestamp: any; // Firestore Timestamp
   tags: string[];
   flavorProfile: PalateMap;

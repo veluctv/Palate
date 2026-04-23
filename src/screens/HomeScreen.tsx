@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { TrendingUp, Star, MapPin, Loader2 } from 'lucide-react';
+import { TrendingUp, Star, MapPin, Loader2, Users } from 'lucide-react';
 import { DishCard } from '../components/DishCard';
-import { Dish, FoodLog } from '../types';
+import { Dish, FoodLog, UserProfile } from '../types';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 
 export const HomeScreen: React.FC = () => {
   const [featuredDishes, setFeaturedDishes] = useState<Dish[]>([]);
   const [recentLogs, setRecentLogs] = useState<FoodLog[]>([]);
+  const [featuredExplorers, setFeaturedExplorers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,6 +35,17 @@ export const HomeScreen: React.FC = () => {
         const logsSnapshot = await getDocs(logsQuery);
         const logs = logsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FoodLog));
         setRecentLogs(logs);
+
+        // Fetch featured explorers (mock users usually have certain usernames)
+        const explorersQuery = query(
+          collection(db, 'users'),
+          limit(5)
+        );
+        const explorersSnapshot = await getDocs(explorersQuery);
+        const explorers = explorersSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() } as UserProfile))
+          .filter(u => u.username !== 'user'); // Filter out default new users if possible
+        setFeaturedExplorers(explorers);
       } catch (error) {
         handleFirestoreError(error, OperationType.LIST, 'home_data');
       } finally {
@@ -63,7 +76,7 @@ export const HomeScreen: React.FC = () => {
           Your social record of <span className="text-accent italic">human taste.</span>
         </motion.h1>
         <p className="text-muted max-w-md">
-          Log your meals, build your palate, and find your palate twins in Singapore and beyond.
+          Record your meals, define your palate, and find your palate twins in Singapore and across the globe.
         </p>
       </section>
 
@@ -86,6 +99,38 @@ export const HomeScreen: React.FC = () => {
           <p className="text-[10px] text-muted">Popular among your taste matches.</p>
         </div>
       </div>
+
+      {/* Featured Explorers */}
+      {featuredExplorers.length > 0 && (
+        <section className="space-y-6">
+          <div className="flex items-center gap-2">
+            <Users size={18} className="text-secondary" />
+            <h2 className="text-xs uppercase tracking-[0.2em] font-bold">Featured Explorers</h2>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+            {featuredExplorers.map((explorer) => (
+              <Link 
+                key={explorer.id} 
+                to={`/profile/${explorer.id}`}
+                className="flex-shrink-0 w-24 space-y-2 group"
+              >
+                <div className="aspect-square rounded-[1.5rem] bg-card overflow-hidden border border-border group-hover:border-accent transition-all group-hover:scale-105">
+                  {explorer.photoURL ? (
+                    <img src={explorer.photoURL} alt={explorer.username} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted">
+                       <Users size={24} />
+                    </div>
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] font-bold truncate italic">@{explorer.username}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Featured */}
       {featuredDishes.length > 0 && (
@@ -111,22 +156,24 @@ export const HomeScreen: React.FC = () => {
           <h2 className="text-xs uppercase tracking-[0.2em] font-bold text-muted">Recent Activity</h2>
           <div className="space-y-4">
             {recentLogs.map((log) => (
-              <div key={log.id} className="glass rounded-2xl p-4 flex gap-4 items-center">
-                <div className="w-12 h-12 rounded-xl bg-card overflow-hidden flex-shrink-0">
+              <div key={log.id} className="glass rounded-2xl p-4 flex gap-4 items-center group">
+                <div className="w-12 h-12 rounded-xl bg-card overflow-hidden flex-shrink-0 border border-border/50">
                   <img 
                     src={log.photoURL} 
                     alt={log.dishName} 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform group-hover:scale-110"
                     referrerPolicy="no-referrer"
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold truncate">{log.dishName}</p>
-                  <p className="text-xs text-muted truncate">at {log.restaurantName}</p>
+                  <p className="text-sm font-bold truncate group-hover:text-accent transition-colors italic">{log.dishName}</p>
+                  <Link to={`/profile/${log.userId}`} className="text-[10px] text-muted font-bold uppercase tracking-widest hover:text-white transition-colors">
+                    by @{log.username || `user_${log.userId?.slice(0, 5)}`}
+                  </Link>
                 </div>
-                <div className="flex items-center gap-1 text-accent">
-                  <Star size={12} className="fill-accent" />
-                  <span className="text-xs font-bold">{log.rating}</span>
+                <div className="flex items-center gap-1 text-accent bg-accent/10 px-2 py-1 rounded-lg">
+                  <Star size={10} className="fill-accent" />
+                  <span className="text-xs font-black italic">{log.rating}</span>
                 </div>
               </div>
             ))}

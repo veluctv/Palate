@@ -41,60 +41,66 @@ export const AdminScreen: React.FC = () => {
   return (
     <div className="max-w-md mx-auto py-12 space-y-8">
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">Release Controls</h1>
-        <p className="text-muted">Universal Data & AI Hydration Engine</p>
+        <h1 className="text-3xl font-black italic text-accent">Control Panel</h1>
+        <p className="text-muted text-[10px] uppercase tracking-widest font-bold">Universal Data & Hydration Engine</p>
       </div>
 
-      <div className="glass rounded-3xl p-8 space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-red-500/20 rounded-2xl text-red-500">
-            <Globe size={24} />
+      <div className="glass rounded-[2rem] p-8 space-y-8 border border-border/50">
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-red-500/20 rounded-2xl text-red-500 shadow-lg shadow-red-500/10">
+              <Globe size={24} />
+            </div>
+            <div>
+              <h2 className="font-bold italic">Global Expansion</h2>
+              <p className="text-[10px] text-muted uppercase tracking-wider font-bold">Inflate Google Maps Registry</p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-bold">Global Expansion</h2>
-            <p className="text-xs text-muted">Probe and inflate Google Maps data for 7 core neighborhoods.</p>
-          </div>
+
+          <button
+            onClick={handleInflate}
+            disabled={inflating || loading}
+            className="w-full bg-accent text-black font-black py-5 rounded-[1.5rem] flex items-center justify-center gap-2 hover:translate-y-[-2px] active:translate-y-0 transition-all disabled:opacity-50 shadow-xl shadow-accent/20"
+          >
+            {inflating ? (
+              <>
+                <Loader2 className="animate-spin" size={20} />
+                Expanding...
+              </>
+            ) : (
+              'RUN EXPANSION'
+            )}
+          </button>
         </div>
 
-        <button
-          onClick={handleInflate}
-          disabled={inflating || loading}
-          className="w-full bg-accent text-black font-black py-4 rounded-2xl flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 shadow-xl shadow-accent/20"
-        >
-          {inflating ? (
-            <>
-              <Loader2 className="animate-spin" size={20} />
-              Expanding Culinary Map...
-            </>
-          ) : (
-            'RUN GLOBAL EXPANSION'
-          )}
-        </button>
+        <div className="h-px bg-border/30" />
 
-        <div className="flex items-center gap-4 pt-6 border-t border-white/5">
-          <div className="p-3 bg-accent/20 rounded-2xl text-accent">
-            <Database size={24} />
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-accent/20 rounded-2xl text-accent shadow-lg shadow-accent/10">
+              <Database size={24} />
+            </div>
+            <div>
+              <h2 className="font-bold italic">Palate Seeder</h2>
+              <p className="text-[10px] text-muted uppercase tracking-wider font-bold">Populate 150 Social Logs</p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-bold">Community Seeder</h2>
-            <p className="text-xs text-muted">Populate 150 community logs for social feed testing.</p>
-          </div>
+
+          <button
+            onClick={handleSeed}
+            disabled={loading || inflating}
+            className="w-full bg-white/5 border border-white/10 text-white font-black py-5 rounded-[1.5rem] flex items-center justify-center gap-2 hover:bg-white/10 transition-all disabled:opacity-50 shadow-2xl"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="animate-spin" size={20} />
+                Seeding...
+              </>
+            ) : (
+              'REGENERATE UNIVERSE'
+            )}
+          </button>
         </div>
-
-        <button
-          onClick={handleSeed}
-          disabled={loading || inflating}
-          className="w-full bg-white/10 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-white/20 transition-all disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="animate-spin" size={20} />
-              Seeding Data...
-            </>
-          ) : (
-            'Seed Community Logs'
-          )}
-        </button>
 
         {status === 'success' && (
           <div className="flex items-center gap-2 text-green-500 bg-green-500/10 p-4 rounded-xl text-sm">
